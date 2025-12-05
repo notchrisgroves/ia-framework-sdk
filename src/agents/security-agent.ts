@@ -6,9 +6,11 @@
  * - Penetration Testing (exploitation)
  * - Vulnerability Scanning (detection only)
  * - Network Segmentation Testing
+ *
+ * Uses OpenRouter/Anthropic for model selection optimization.
  */
 
-import { Anthropic } from '@anthropic-ai/sdk';
+import { createModelClient, ModelClient } from '../clients/model-client';
 import { AgentName, EngagementPhase, AgentMessage } from '../types/index';
 
 type SecurityTestingMode = 'penetration-testing' | 'vulnerability-scanning' | 'network-segmentation';
@@ -25,29 +27,15 @@ interface SecurityContext {
 export class SecurityAgent {
   private name: AgentName = 'security';
   private currentPhase: EngagementPhase = 'explore';
-  private client: Anthropic | null = null;
+  private modelClient: ModelClient;
   private context: SecurityContext = {
     mode: 'vulnerability-scanning',
     engagementMode: 'director'
   };
 
   constructor() {
-    // Client will be initialized lazily on first use
-  }
-
-  /**
-   * Get or initialize Anthropic client
-   */
-  private getClient(): Anthropic {
-    if (!this.client) {
-      if (!process.env.ANTHROPIC_API_KEY) {
-        throw new Error('ANTHROPIC_API_KEY not configured');
-      }
-      this.client = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY
-      });
-    }
-    return this.client;
+    // Initialize model client with agent-specific configuration
+    this.modelClient = createModelClient('security');
   }
 
   /**
@@ -123,32 +111,23 @@ Always emphasize scope compliance and authorization verification.`;
       this.context.mode = this.detectMode(userMessage);
       this.context.engagementMode = this.detectEngagementMode(userMessage);
 
-      // Call Claude API for actual response
-      const client = this.getClient();
-      const message = await client.messages.create({
-        model: 'claude-opus-4-5-20251101',
-        max_tokens: 1024,
-        system: this.buildSystemPrompt(),
-        messages: [
-          {
-            role: 'user',
-            content: userMessage
-          }
-        ]
-      });
-
-      const responseText = message.content[0].type === 'text' ? message.content[0].text : '';
+      // Call model API for actual response
+      const response = await this.modelClient.generateCompletion(
+        this.buildSystemPrompt(),
+        userMessage,
+        1024
+      );
 
       return {
         role: 'assistant',
-        content: responseText,
+        content: response.content,
         agent: this.name
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         role: 'assistant',
-        content: `Security Agent Error: ${errorMessage}\n\nPlease ensure ANTHROPIC_API_KEY is configured and try again.`,
+        content: `Security Agent Error: ${errorMessage}\n\nPlease ensure OPENROUTER_API_KEY or ANTHROPIC_API_KEY is configured.`,
         agent: this.name
       };
     }

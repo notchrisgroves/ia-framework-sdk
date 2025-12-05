@@ -6,9 +6,11 @@
  * - Public (10-15%): Introductions, announcements, teasers
  * - Free Members (70-75%): Complete technical posts, building in public
  * - Paid Members (10-15%): Step-by-step implementations
+ *
+ * Uses OpenRouter/Anthropic for model selection optimization.
  */
 
-import { Anthropic } from '@anthropic-ai/sdk';
+import { createModelClient, ModelClient } from '../clients/model-client';
 import { AgentName, AgentMessage } from '../types/index';
 
 type ContentType = 'blog-post' | 'technical-writing' | 'security-report' | 'newsletter';
@@ -23,29 +25,15 @@ interface WriterContext {
 
 export class WriterAgent {
   private name: AgentName = 'writer';
-  private client: Anthropic | null = null;
+  private modelClient: ModelClient;
   private context: WriterContext = {
     contentType: 'blog-post',
     tier: 'free'
   };
 
   constructor() {
-    // Client will be initialized lazily on first use
-  }
-
-  /**
-   * Get or initialize Anthropic client
-   */
-  private getClient(): Anthropic {
-    if (!this.client) {
-      if (!process.env.ANTHROPIC_API_KEY) {
-        throw new Error('ANTHROPIC_API_KEY not configured');
-      }
-      this.client = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY
-      });
-    }
-    return this.client;
+    // Initialize model client with agent-specific configuration
+    this.modelClient = createModelClient('writer');
   }
 
   /**
@@ -131,32 +119,23 @@ Always emphasize practical implementation and real-world applicability.`;
       this.context.contentType = this.detectContentType(userMessage);
       this.context.tier = this.detectTier(userMessage);
 
-      // Call Claude API for actual response
-      const client = this.getClient();
-      const message = await client.messages.create({
-        model: 'claude-opus-4-5-20251101',
-        max_tokens: 1024,
-        system: this.buildSystemPrompt(),
-        messages: [
-          {
-            role: 'user',
-            content: userMessage
-          }
-        ]
-      });
-
-      const responseText = message.content[0].type === 'text' ? message.content[0].text : '';
+      // Call model API for actual response
+      const response = await this.modelClient.generateCompletion(
+        this.buildSystemPrompt(),
+        userMessage,
+        1024
+      );
 
       return {
         role: 'assistant',
-        content: responseText,
+        content: response.content,
         agent: this.name
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         role: 'assistant',
-        content: `Writer Agent Error: ${errorMessage}\n\nPlease ensure ANTHROPIC_API_KEY is configured and try again.`,
+        content: `Writer Agent Error: ${errorMessage}\n\nPlease ensure OPENROUTER_API_KEY or ANTHROPIC_API_KEY is configured.`,
         agent: this.name
       };
     }

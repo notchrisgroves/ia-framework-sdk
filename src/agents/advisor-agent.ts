@@ -4,7 +4,7 @@
  * Handles personal development, OSINT research, and quality assurance review.
  */
 
-import { Anthropic } from '@anthropic-ai/sdk';
+import { createModelClient, ModelClient } from '../clients/model-client';
 import { AgentName, AgentMessage } from '../types/index';
 
 type AdvisoryMode = 'osint-research' | 'career-development' | 'qa-review';
@@ -18,26 +18,15 @@ interface AdvisorContext {
 
 export class AdvisorAgent {
   private name: AgentName = 'advisor';
-  private client: Anthropic | null = null;
+  private modelClient: ModelClient;
   private context: AdvisorContext = {
     mode: 'osint-research',
     depth: 'quick'
   };
 
   constructor() {
-    // Client will be initialized lazily on first use
-  }
-
-  private getClient(): Anthropic {
-    if (!this.client) {
-      if (!process.env.ANTHROPIC_API_KEY) {
-        throw new Error('ANTHROPIC_API_KEY not configured');
-      }
-      this.client = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY
-      });
-    }
-    return this.client;
+    // Initialize model client with agent-specific configuration
+    this.modelClient = createModelClient('advisor');
   }
 
   private detectMode(message: string): AdvisoryMode {
@@ -104,31 +93,22 @@ Always emphasize thoroughness, accuracy, and ethical practices.`;
       this.context.mode = this.detectMode(userMessage);
       this.context.depth = this.detectDepth(userMessage);
 
-      const client = this.getClient();
-      const message = await client.messages.create({
-        model: 'claude-opus-4-5-20251101',
-        max_tokens: 1024,
-        system: this.buildSystemPrompt(),
-        messages: [
-          {
-            role: 'user',
-            content: userMessage
-          }
-        ]
-      });
-
-      const responseText = message.content[0].type === 'text' ? message.content[0].text : '';
+      const response = await this.modelClient.generateCompletion(
+        this.buildSystemPrompt(),
+        userMessage,
+        1024
+      );
 
       return {
         role: 'assistant',
-        content: responseText,
+        content: response.content,
         agent: this.name
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         role: 'assistant',
-        content: `Advisor Agent Error: ${errorMessage}\n\nPlease ensure ANTHROPIC_API_KEY is configured and try again.`,
+        content: `Advisor Agent Error: ${errorMessage}\n\nPlease ensure OPENROUTER_API_KEY or ANTHROPIC_API_KEY is configured.`,
         agent: this.name
       };
     }

@@ -5,7 +5,7 @@
  * IMPORTANT: Provides legal information, NOT legal advice.
  */
 
-import { Anthropic } from '@anthropic-ai/sdk';
+import { createModelClient, ModelClient } from '../clients/model-client';
 import { AgentName, AgentMessage } from '../types/index';
 
 type LegalMode = 'compliance-review' | 'contract-analysis' | 'risk-assessment' | 'jurisdictional-research';
@@ -18,25 +18,14 @@ interface LegalContext {
 
 export class LegalAgent {
   private name: AgentName = 'legal';
-  private client: Anthropic | null = null;
+  private modelClient: ModelClient;
   private context: LegalContext = {
     mode: 'compliance-review'
   };
 
   constructor() {
-    // Client will be initialized lazily on first use
-  }
-
-  private getClient(): Anthropic {
-    if (!this.client) {
-      if (!process.env.ANTHROPIC_API_KEY) {
-        throw new Error('ANTHROPIC_API_KEY not configured');
-      }
-      this.client = new Anthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY
-      });
-    }
-    return this.client;
+    // Initialize model client with agent-specific configuration
+    this.modelClient = createModelClient('legal');
   }
 
   private detectMode(message: string): LegalMode {
@@ -102,31 +91,22 @@ Always emphasize that this is information gathering only, not legal advice.`;
     try {
       this.context.mode = this.detectMode(userMessage);
 
-      const client = this.getClient();
-      const message = await client.messages.create({
-        model: 'claude-opus-4-5-20251101',
-        max_tokens: 1024,
-        system: this.buildSystemPrompt(),
-        messages: [
-          {
-            role: 'user',
-            content: userMessage
-          }
-        ]
-      });
-
-      const responseText = message.content[0].type === 'text' ? message.content[0].text : '';
+      const response = await this.modelClient.generateCompletion(
+        this.buildSystemPrompt(),
+        userMessage,
+        1024
+      );
 
       return {
         role: 'assistant',
-        content: responseText,
+        content: response.content,
         agent: this.name
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return {
         role: 'assistant',
-        content: `Legal Agent Error: ${errorMessage}\n\nPlease ensure ANTHROPIC_API_KEY is configured and try again.`,
+        content: `Legal Agent Error: ${errorMessage}\n\nPlease ensure OPENROUTER_API_KEY or ANTHROPIC_API_KEY is configured.`,
         agent: this.name
       };
     }
