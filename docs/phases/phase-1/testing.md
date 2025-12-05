@@ -147,7 +147,7 @@ Once Phase 1 passes, next steps:
 Check these files:
 - `src/clients/model-client.ts` - Model selection logic
 - `src/agents/[name]-agent.ts` - Agent implementation
-- `PHASE-1-OPENROUTER-INTEGRATION.md` - Architecture details
+- `implementation.md` - Architecture details
 - `README.md` - General documentation
 
 Good luck! 🚀

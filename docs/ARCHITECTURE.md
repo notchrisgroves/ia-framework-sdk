@@ -371,10 +371,15 @@ ia-framework/
 ├── tsconfig.json
 ├── Dockerfile
 ├── docker-compose.yml
-├── PHASE-1-OPENROUTER-INTEGRATION.md
-├── TESTING-PHASE-1.md
-├── ARCHITECTURE.md (this file)
-└── README.md
+├── docs/ (Documentation)
+│   ├── README.md (Documentation index)
+│   ├── ARCHITECTURE.md (this file)
+│   ├── AGENT-SKILL-MAPPING.md
+│   └── phases/
+│       └── phase-1/
+│           ├── implementation.md
+│           └── testing.md
+└── README.md (Root level - SDK quickstart)
 ```
 
 ---
@@ -387,7 +392,7 @@ ia-framework/
 4. **Phase 4:** Implement multi-turn conversation support with state tracking
 5. **Phase 5:** Docker deployment and public GitHub publishing
 
-See `TESTING-PHASE-1.md` for quick start guide.
+See `phases/phase-1/testing.md` for quick start guide.
 
 ---
 
