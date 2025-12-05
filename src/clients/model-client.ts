@@ -1,9 +1,19 @@
 /**
- * Model Client - Unified API for Claude, Grok, Perplexity, and other models
+ * Model Client - Workflow-Aware Unified API
  *
- * Abstracts OpenRouter API to support model selection by agent type.
- * Falls back to Anthropic SDK if OpenRouter key not configured.
+ * Dynamically selects models based on:
+ * 1. Skill workflows (skill → phase → required capability)
+ * 2. Available models from OpenRouter (dynamically discovered)
+ * 3. Cost optimization and capability matching
+ *
+ * Supports multi-model orchestration:
+ * - Primary model for main work
+ * - Comparison models for validation
+ * - Fallback chains for robustness
  */
+
+import { modelDiscovery, OpenRouterModel } from '../services/model-discovery';
+import { getPhaseConfig, ModelSelector } from '../config/workflows';
 
 type ModelProvider = 'openrouter' | 'anthropic';
 
@@ -15,6 +25,7 @@ interface ModelMessage {
 interface ModelResponse {
   content: string;
   model: string;
+  modelId: string;
   usage?: {
     prompt_tokens?: number;
     completion_tokens?: number;
@@ -22,45 +33,40 @@ interface ModelResponse {
     output_tokens?: number;
     [key: string]: any;
   };
+  capability?: string;
+  provider?: ModelProvider;
 }
 
 /**
- * Model assignments by agent type
- * Selects best model for each agent's specific needs
+ * Workflow-aware model client
+ * Selects models based on skill → phase requirements
  */
-const AGENT_MODELS: Record<string, string> = {
-  'router': 'meta-llama/llama-3-8b-instruct',    // Fast, cheap routing
-  'security': 'anthropic/claude-opus-4-5',       // Complex analysis, security focus
-  'writer': 'anthropic/claude-opus-4-5',         // Quality content generation
-  'advisor': 'grok-vision',                      // Research + vision for OSINT
-  'legal': 'anthropic/claude-opus-4-5',          // Legal accuracy critical
-  'default': 'anthropic/claude-opus-4-5'
-};
-
 export class ModelClient {
-  private provider: ModelProvider;
-  private apiKey: string;
+  private provider: ModelProvider = 'openrouter';
+  private apiKey: string = '';
   private baseUrl = 'https://openrouter.ai/api/v1';
 
   private agentName?: string;
+  private skill?: string;
+  private phase?: string;
+  private selectedModel?: OpenRouterModel;
 
-  constructor(agentName?: string) {
-    // Store agent name for model selection
+  constructor(agentName?: string, skill?: string, phase?: string) {
     this.agentName = agentName;
-    // Don't initialize provider/apiKey yet - do it lazily when first used
-    this.provider = 'openrouter'; // Default
-    this.apiKey = '';
+    this.skill = skill;
+    this.phase = phase;
   }
 
   /**
    * Initialize provider and API key (lazy initialization)
    */
-  private initializeProvider(): void {
+  private async initializeProvider(): Promise<void> {
     if (this.apiKey) return; // Already initialized
 
     if (process.env.OPENROUTER_API_KEY) {
       this.provider = 'openrouter';
       this.apiKey = process.env.OPENROUTER_API_KEY;
+      modelDiscovery.setApiKey(this.apiKey);
     } else if (process.env.ANTHROPIC_API_KEY) {
       this.provider = 'anthropic';
       this.apiKey = process.env.ANTHROPIC_API_KEY;
@@ -70,22 +76,72 @@ export class ModelClient {
   }
 
   /**
-   * Get the appropriate model for this agent
+   * Select model based on workflow requirements
    */
-  private getModel(): string {
-    if (this.provider === 'anthropic') {
-      return 'claude-opus-4-5-20251101';
+  private async selectModel(): Promise<OpenRouterModel> {
+    if (this.selectedModel) {
+      return this.selectedModel;
     }
-    return this.agentName && AGENT_MODELS[this.agentName]
-      ? AGENT_MODELS[this.agentName]
-      : AGENT_MODELS['default'];
+
+    // If skill and phase provided, use workflow-based selection
+    if (this.skill && this.phase) {
+      const phaseConfig = getPhaseConfig(this.skill, this.phase);
+      if (phaseConfig) {
+        const model = await modelDiscovery.findModel(phaseConfig.primaryModel);
+        if (model) {
+          this.selectedModel = model;
+          return model;
+        }
+      }
+    }
+
+    // Fallback: use agent-based selection for backward compatibility
+    const fallbackModel = await this.selectModelByAgent();
+    if (fallbackModel) {
+      this.selectedModel = fallbackModel;
+      return fallbackModel;
+    }
+
+    throw new Error('No suitable model found');
+  }
+
+  /**
+   * Select model by agent name (backward compatibility)
+   */
+  private async selectModelByAgent(): Promise<OpenRouterModel | null> {
+    if (!this.agentName) return null;
+
+    const requirements = this.getAgentRequirements(this.agentName);
+    if (!requirements) return null;
+
+    return modelDiscovery.findModel(requirements);
+  }
+
+  /**
+   * Get capability requirements by agent type
+   */
+  private getAgentRequirements(agent: string): ModelSelector | null {
+    switch (agent) {
+      case 'router':
+        return { capability: 'text-generation' };
+      case 'security':
+        return { capability: 'text-reasoning', preference: 'anthropic' };
+      case 'writer':
+        return { capability: 'text-generation', preference: 'anthropic' };
+      case 'advisor':
+        return { capability: 'real-time-search', preference: 'x-ai' };
+      case 'legal':
+        return { capability: 'text-reasoning', preference: 'anthropic' };
+      default:
+        return { capability: 'text-reasoning', preference: 'anthropic' };
+    }
   }
 
   /**
    * Call OpenRouter API
    */
   private async callOpenRouter(
-    model: string,
+    model: OpenRouterModel,
     messages: ModelMessage[],
     systemPrompt: string,
     maxTokens: number
@@ -99,7 +155,7 @@ export class ModelClient {
         'X-Title': 'IA Framework Agent SDK'
       },
       body: JSON.stringify({
-        model,
+        model: model.id,
         messages: [
           {
             role: 'user',
@@ -120,7 +176,10 @@ export class ModelClient {
 
     return {
       content: data.choices[0].message.content,
-      model: data.model,
+      model: model.name,
+      modelId: model.id,
+      provider: 'openrouter',
+      capability: this.phase,
       usage: data.usage
     };
   }
@@ -152,20 +211,26 @@ export class ModelClient {
     return {
       content: response.content[0].type === 'text' ? response.content[0].text : '',
       model: response.model,
+      modelId: response.model,
+      provider: 'anthropic',
       usage: response.usage
     };
   }
 
   /**
    * Generate a completion from the model
+   *
+   * @param systemPrompt - System prompt for the model
+   * @param userMessage - User message
+   * @param maxTokens - Max tokens in response (default 1024)
    */
   async generateCompletion(
     systemPrompt: string,
     userMessage: string,
     maxTokens: number = 1024
   ): Promise<ModelResponse> {
-    // Initialize provider and API key on first use
-    this.initializeProvider();
+    // Initialize on first use
+    await this.initializeProvider();
 
     const messages: ModelMessage[] = [
       {
@@ -176,7 +241,7 @@ export class ModelClient {
 
     try {
       if (this.provider === 'openrouter') {
-        const model = this.getModel();
+        const model = await this.selectModel();
         return await this.callOpenRouter(model, messages, systemPrompt, maxTokens);
       } else {
         return await this.callAnthropic(messages, systemPrompt, maxTokens);
@@ -188,20 +253,82 @@ export class ModelClient {
   }
 
   /**
-   * Get information about which provider and model is being used
+   * Compare two models for quality assessment
+   * Returns results from both models for comparison
    */
-  getInfo() {
+  async compareModels(
+    primaryCapability: ModelSelector,
+    compareCapability: ModelSelector,
+    systemPrompt: string,
+    userMessage: string,
+    maxTokens: number = 1024
+  ): Promise<{ primary: ModelResponse; comparison: ModelResponse }> {
+    await this.initializeProvider();
+
+    if (this.provider !== 'openrouter') {
+      throw new Error('Model comparison only supported with OpenRouter');
+    }
+
+    // Get both models
+    const primaryModel = await modelDiscovery.findModel(primaryCapability);
+    const compareModel = await modelDiscovery.findModel(compareCapability);
+
+    if (!primaryModel || !compareModel) {
+      throw new Error('Could not find models for comparison');
+    }
+
+    const messages: ModelMessage[] = [
+      {
+        role: 'user',
+        content: userMessage
+      }
+    ];
+
+    const [primaryResponse, comparisonResponse] = await Promise.all([
+      this.callOpenRouter(primaryModel, messages, systemPrompt, maxTokens),
+      this.callOpenRouter(compareModel, messages, systemPrompt, maxTokens)
+    ]);
+
+    return { primary: primaryResponse, comparison: comparisonResponse };
+  }
+
+  /**
+   * Set workflow context (skill + phase)
+   */
+  setWorkflow(skill: string, phase: string): void {
+    this.skill = skill;
+    this.phase = phase;
+    this.selectedModel = undefined; // Clear cached model
+  }
+
+  /**
+   * Get information about selected model
+   */
+  async getInfo(): Promise<{
+    provider: ModelProvider;
+    model: string;
+    modelId: string;
+    skill?: string;
+    phase?: string;
+    agent?: string;
+  }> {
+    const model = await this.selectModel();
     return {
       provider: this.provider,
-      model: this.getModel(),
+      model: model.name,
+      modelId: model.id,
+      skill: this.skill,
+      phase: this.phase,
       agent: this.agentName
     };
   }
 }
 
 /**
- * Get model client with agent-specific configuration
+ * Create model client with agent configuration
  */
-export function createModelClient(agentName: string): ModelClient {
-  return new ModelClient(agentName);
+export function createModelClient(agentName: string, skill?: string, phase?: string): ModelClient {
+  return new ModelClient(agentName, skill, phase);
 }
+
+export type { ModelResponse, OpenRouterModel };
