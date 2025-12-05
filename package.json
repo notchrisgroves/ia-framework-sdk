@@ -1,0 +1,46 @@
+{
+  "name": "ia-framework",
+  "version": "1.0.0",
+  "description": "Intelligence Adjacent Framework - Agent SDK Application for Security, Writing, Research, and Compliance",
+  "main": "dist/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest",
+    "lint": "eslint src --ext .ts",
+    "agents:validate": "tsx src/config/validate-agents.ts",
+    "agents:list": "tsx src/config/list-agents.ts",
+    "docker:build": "docker build -t ia-framework:latest .",
+    "docker:run": "docker run -e ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY} -p 3000:3000 ia-framework:latest"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "claude",
+    "security",
+    "research",
+    "writing",
+    "compliance"
+  ],
+  "author": "Chris Groves",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "express": "^4.18.2",
+    "dotenv": "^16.3.1",
+    "zod": "^3.22.4",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.0",
+    "vitest": "^1.1.0",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^6.17.0",
+    "@typescript-eslint/parser": "^6.17.0"
+  }
+}

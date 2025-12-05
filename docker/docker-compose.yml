@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  ia-framework:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: ia-framework-dev
+    ports:
+      - "3000:3000"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - RESOURCES_PATH=/app/resources
+    volumes:
+      # Code for hot-reload during development
+      - ../src:/app/src
+
+      # Config mount point
+      - ~/.config/ia-framework:/app/config
+
+      # Optional: Mount resources if available
+      - ../ia-framework-resources/core:/app/resources/core:ro
+      - ../ia-framework-resources/security:/app/resources/security:ro
+      - ../ia-framework-resources/writer:/app/resources/writer:ro
+      - ../ia-framework-resources/research:/app/resources/research:ro
+
+    # Restart policy
+    restart: unless-stopped
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  default:
+    name: ia-framework-network

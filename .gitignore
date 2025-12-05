@@ -1,0 +1,50 @@
+# Dependencies
+node_modules/
+package-lock.json
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Runtime
+.cache/
+logs/
+*.log
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+scratchpad/
+
+# OS
+.DS_Store
+.env.example.local
+
+# Docker
+docker-compose.override.yml
+.dockerignore.local
+
+# Private resources (never commit)
+resources/private/
