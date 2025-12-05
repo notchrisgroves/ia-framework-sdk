@@ -1,5 +1,4 @@
-# Phase 1 Testing Guide - Ready to Test
-
+# Getting Started - Deploy # Phase 1 Testing Guide - Ready to Test Test the Agent SDK
 **Status:** Waiting for OPENROUTER_API_KEY
 **Estimated Test Time:** 5-10 minutes
 

@@ -375,10 +375,11 @@ ia-framework/
 │   ├── README.md (Documentation index)
 │   ├── ARCHITECTURE.md (this file)
 │   ├── AGENT-SKILL-MAPPING.md
-│   └── phases/
-│       └── phase-1/
-│           ├── implementation.md
-│           └── testing.md
+
+
+
+│   ├── QUICKSTART.md
+│   └── OPENROUTER_INTEGRATION.md
 └── README.md (Root level - SDK quickstart)
 ```
 
@@ -392,7 +393,7 @@ ia-framework/
 4. **Phase 4:** Implement multi-turn conversation support with state tracking
 5. **Phase 5:** Docker deployment and public GitHub publishing
 
-See `phases/phase-1/testing.md` for quick start guide.
+See docs/README.md for documentation index and quick start guide.
 
 ---
 

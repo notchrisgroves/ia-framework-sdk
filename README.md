@@ -1,60 +1,68 @@
-# Intelligence Adjacent Framework (Agent SDK)
+# Intelligence Adjacent Framework - Agent SDK
 
 Building AI systems that augment human intelligence, not replace it.
 
-## Overview
+**Status:** Phase 1 Complete (Workflow-Aware Model Selection with Dynamic Discovery) | **Framework:** Node.js + TypeScript | **Deployment:** Docker
 
-IA Framework is an Agent SDK application that provides specialized AI agents for security, writing, research, and compliance work. Deploy as a Docker container with one command.
+---
 
-## Quick Start
+## Quick Start (5 minutes)
 
-### Prerequisites
-
-- Docker & Docker Compose
-- Node.js 18+ (for local development)
-- `ANTHROPIC_API_KEY` environment variable
-
-### Option 1: Docker (Recommended)
+Get the Agent SDK running with Docker:
 
 ```bash
-cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
+git clone https://github.com/notchrisgroves/ia-framework-sdk.git
+cd ia-framework-sdk
 
-docker-compose -f docker/docker-compose.yml up
+cp .env.example .env
+# Edit .env and add: OPENROUTER_API_KEY=sk-or-your-key-here
+# Get key from: https://openrouter.ai/keys
+
+docker-compose up
 ```
 
 Server runs on `http://localhost:3000`
 
-### Option 2: Local Development
+**For complete setup, testing, and API documentation**, see [`docs/QUICKSTART.md`](./docs/QUICKSTART.md)
 
-```bash
-npm install
-cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
+---
 
-npm run dev
-```
+## What is the Agent SDK?
 
-TypeScript hot-reloads automatically.
+IA Framework is a production-ready Node.js application that deploys specialized AI agents for:
 
-## Architecture
+- **Security**: Penetration testing, vulnerability assessment, security advisory
+- **Writing**: Blog posts, technical documentation, security reports
+- **Research**: OSINT intelligence gathering, job analysis, career guidance
+- **Compliance**: GDPR analysis, contract review, regulatory research
 
-### Agents
+**Agents automatically route your request to the right specialist** based on keywords.
 
-- **Security Agent** - Penetration testing, vulnerability assessment, security advisory
-- **Writer Agent** - Blog posts, technical documentation, security reports
-- **Advisor Agent** - OSINT research, job analysis, career guidance
-- **Legal Agent** - Compliance review, contract analysis, regulatory research
-- **Router Agent** - Intelligent request routing to appropriate specialist
+### Key Capabilities
 
-### Features
-
-✅ **Keyword-based routing** - Requests automatically routed to the right agent
+✅ **Multi-model orchestration** - Dynamically selects from 200+ OpenRouter models
+✅ **Workflow-aware selection** - Each skill phase uses cost-optimized models
+✅ **Real-time model discovery** - Automatically finds best available model
 ✅ **Type-safe** - Full TypeScript with strict types
-✅ **API-first** - REST endpoints for all operations
-✅ **Docker-ready** - One-command deployment
-✅ **Health checks** - Built-in monitoring
-✅ **Production-grade** - Security, logging, error handling
+✅ **Docker-ready** - Single-command deployment
+✅ **Production-grade** - Health checks, logging, error handling
+
+---
+
+## Documentation
+
+Start based on what you need:
+
+| I want to... | Read this |
+|---|---|
+| **Get running in 5 minutes** | [`docs/QUICKSTART.md`](./docs/QUICKSTART.md) |
+| **Understand the architecture** | [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) |
+| **Learn how agents route to skills** | [`docs/AGENT_SKILL_MAPPING.md`](./docs/AGENT_SKILL_MAPPING.md) |
+| **Dive into OpenRouter integration** | [`docs/OPENROUTER_INTEGRATION.md`](./docs/OPENROUTER_INTEGRATION.md) |
+
+**Full documentation index:** [`docs/README.md`](./docs/README.md)
+
+---
 
 ## API Endpoints
 
@@ -67,20 +75,20 @@ curl http://localhost:3000/health
 # Ready check
 curl http://localhost:3000/ready
 
-# List agents
+# List available agents
 curl http://localhost:3000/agents
 ```
 
-### Main Query Endpoint
+### Query Endpoint
 
 ```bash
-# Send a query (routes to appropriate agent)
+# Send a query (automatically routes to appropriate agent)
 curl -X POST http://localhost:3000/query \
   -H "Content-Type: application/json" \
-  -d '{"prompt": "I need to do a penetration test on hackerone"}'
+  -d '{"prompt": "I need to do a penetration test"}'
 ```
 
-### Routing Endpoints (Debug)
+### Routing Debug
 
 ```bash
 # Get all routing rules
@@ -89,35 +97,36 @@ curl http://localhost:3000/routing/rules
 # Test routing for a query
 curl -X POST http://localhost:3000/routing/test \
   -H "Content-Type: application/json" \
-  -d '{"query": "pentest from hackerone"}'
+  -d '{"query": "pentest hackerone"}'
 ```
+
+---
 
 ## Configuration
 
 ### Environment Variables
 
 ```env
-# Required
-ANTHROPIC_API_KEY=sk-ant-...
+# Required - Get from https://openrouter.ai/keys
+OPENROUTER_API_KEY=sk-or-...
 
 # Optional
 PORT=3000
 NODE_ENV=development
 LOG_LEVEL=info
-
-# Resources (for mounted resources)
-RESOURCES_PATH=/app/resources
-RESOURCES_SECURITY=/app/resources/security
 ```
 
-### Mounting Resources
-
-To include optional resources:
+### Docker Compose
 
 ```bash
-docker-compose -f docker/docker-compose.yml up
-# Automatically mounts resources if ia-framework-resources exists
+# Start with all services
+docker-compose up
+
+# Stop
+docker-compose down
 ```
+
+---
 
 ## Development
 
@@ -125,98 +134,82 @@ docker-compose -f docker/docker-compose.yml up
 
 ```
 src/
-├── agents/           # Specialized agents
-├── skills/           # Skill modules (under development)
-├── tools/            # Tool integrations
-├── config/           # Configuration
+├── agents/           # Specialized agents (security, writer, advisor, legal)
+├── services/         # Model discovery, integrations
+├── clients/          # Model client with workflow awareness
+├── config/           # Workflow definitions, capability mapping
 ├── types/            # TypeScript types
-├── server.ts         # Express server
+├── server.ts         # Express server setup
 └── main.ts           # Entry point
 
-docker/              # Docker configuration
-tests/               # Test suite
-examples/            # Usage examples
+docs/                # Complete documentation
+docker-compose.yml   # Docker orchestration
+tests/              # Test suite
 ```
 
-### Scripts
+### Common Commands
 
 ```bash
-npm run dev           # Start with hot-reload
-npm run build         # Build for production
-npm start             # Run production build
-npm test              # Run test suite
-npm run lint          # Lint code
-npm run agents:list   # List all agents
+npm run dev          # Start with hot-reload
+npm run build        # Build for production
+npm start            # Run production build
+npm test             # Run test suite
+npm run lint         # Lint code
 ```
 
-### Adding a New Agent
-
-1. Create `src/agents/your-agent.ts`
-2. Extend `AgentName` type in `src/types/index.ts`
-3. Add routing rules in `src/agents/router-agent.ts`
-4. Export in `src/server.ts`
+---
 
 ## Deployment
 
-### Docker Hub
+### Docker (Recommended)
 
 ```bash
-# Build
+# Build image
 docker build -t ia-framework:latest .
 
-# Push
-docker push your-registry/ia-framework:latest
-
-# Run
-docker run -e ANTHROPIC_API_KEY=your-key ia-framework:latest
+# Run container
+docker run -e OPENROUTER_API_KEY=your-key ia-framework:latest
 ```
 
 ### Cloud Platforms
 
-The Docker image is production-ready for:
-- AWS ECS
+Production-ready for:
+- AWS ECS / Fargate
 - Google Cloud Run
 - Azure Container Instances
 - Fly.io
-- Modal
 - DigitalOcean App Platform
-
-Example with Fly.io:
-
-```bash
-fly deploy
-```
-
-## Resources
-
-- **Optional Resources Repo**: `ia-framework-resources` (10GB tools/templates)
-  - Mount via Docker volume
-  - Separate versioning
-  - Users choose subsets
-
-## Security
-
-✅ Non-root user execution
-✅ Health checks & monitoring
-✅ Environment variable isolation
-✅ Credentials never in image
-✅ Signal handling for graceful shutdown
-
-## License
-
-MIT
-
-## Contributing
-
-See CONTRIBUTING.md (coming soon)
-
-## Support
-
-Issues? Questions?
-
-- GitHub Issues: https://github.com/yourusername/ia-framework/issues
-- Documentation: See `/docs`
+- Modal
 
 ---
 
-**IA Framework** - Augmenting human intelligence with AI
+## Security
+
+✅ Environment variables for all credentials (never hardcoded)
+✅ Non-root container execution
+✅ Health checks and monitoring
+✅ Graceful signal handling
+✅ API key validation
+
+---
+
+## Project Roadmap
+
+| Phase | Status | What |
+|-------|--------|------|
+| **Phase 1** | ✅ COMPLETE | Workflow-aware model selection with dynamic discovery |
+| **Phase 2** | 📋 PLANNED | Convert SKILL.md files to executable TypeScript modules |
+| **Phase 3** | 📋 PLANNED | Integrate VPS security tool APIs |
+| **Phase 4** | 📋 PLANNED | Multi-turn conversation support with state tracking |
+
+---
+
+## Support
+
+**Documentation**: See [`docs/`](./docs/README.md)
+**Issues**: GitHub Issues
+**License**: MIT
+
+---
+
+**Intelligence Adjacent Framework** - Augmenting human intelligence with AI
